@@ -18,7 +18,7 @@ use config::{
     FromFile,
 };
 
-use crate::{config::{BindSocket, FileExistsError, FileNotFoundError, NewFile}, error::{NoneError, error, fatal_error}, tcp::handle_stream};
+use crate::{config::{BindSocket, FileExistsError, FileNotFoundError, NewFile}, error::{NoneError, error, fatal_error}, tcp::handle_listener};
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     let config_path = "astra.conf";
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         index += 1;
         handlers_vec.push({
             let runtime: Runtime = match Builder::new_multi_thread()
-                .worker_threads(1)
+                .worker_threads(2)
                 .thread_name(
                     listener.local_addr()
                             .unwrap_or(tcp::default_socket())
@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
             let index_string: String = index.to_string();
             let max_string: String = index_max.to_string();
-            runtime.spawn(async move {handle_stream( &(index_string + "/" + &max_string), listener).await});
+            runtime.spawn(async move {handle_listener( &(index_string + "/" + &max_string), listener).await});
 
             runtime
         });
