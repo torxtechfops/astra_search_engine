@@ -1,10 +1,19 @@
-use std::{io::{self, BufRead, BufReader, Error, Read}, net::{
-    Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, TcpStream,
-}, string::FromUtf8Error, time::Duration};
+use std::{
+    io::Read,
+    net::{
+        Ipv4Addr,
+        SocketAddr,
+        SocketAddrV4,
+        TcpListener,
+        TcpStream,
+    },
+    string::FromUtf8Error,
+};
 
-use tokio::runtime::Runtime;
-
-use crate::error::{NoneError, error, fatal_error};
+use crate::error::{
+    NoneError,
+    error,
+};
 
 const BUFFER_SIZE: usize = 8192;
 
@@ -48,7 +57,10 @@ async fn handle_stream(mut stream: TcpStream, socket: SocketAddr) {
         },
     };
 
-    println!("{}", stream_string);
+    let mut stream_string_vec: Vec<&str> = stream_string.split("\n").collect();
+    stream_string_vec.pop(); // All the remaining \0 from the buffer
+
+    println!("{:?}", stream_string_vec);
 }
 
 #[allow(dead_code)]

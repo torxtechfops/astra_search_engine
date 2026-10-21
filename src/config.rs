@@ -1,14 +1,35 @@
 use std::{
-    fmt, fs::{self, File}, io::{Error, Write}, net::{
-        AddrParseError, IpAddr, SocketAddr,
-    }, str::FromStr
+    fmt, 
+    fs::{
+        self, 
+        File}, 
+        io::{
+            Error, 
+            Write
+        }, 
+    net::{
+        AddrParseError, 
+        IpAddr, 
+        SocketAddr,
+    }, 
+    str::FromStr
 };
 use regex::Regex;
 
-use crate::{config::SettingType::{CriticalDuplicate, CriticalUnique, Duplicate, Unique}, error::{
-    error, fatal_error,
-}};
+use crate::{
+    config::SettingType::{
+        CriticalDuplicate, 
+        CriticalUnique, 
+        Duplicate, 
+        Unique
+    }, 
+    error::{
+        error, 
+        fatal_error,
+    },
+};
 
+#[allow(dead_code)]
 pub enum SettingType {
     CriticalUnique, // Setting must have only one value
     CriticalDuplicate, // Setting must exist, but may have any quantity

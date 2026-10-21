@@ -2,7 +2,8 @@ use std::{
     net::{
         AddrParseError,
         TcpListener,
-    }, vec,
+    },
+    vec,
 };
 use tokio::runtime::{
     Runtime,
