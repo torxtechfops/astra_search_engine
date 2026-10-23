@@ -13,6 +13,7 @@ use tokio::runtime::{
 mod config;
 mod error;
 mod tcp;
+mod tcp_errors;
 
 use config::{
     Config,

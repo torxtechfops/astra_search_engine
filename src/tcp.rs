@@ -1,21 +1,26 @@
 use std::{
-    io::Read,
-    net::{
+    fs,
+    io::{Read, Write}, net::{
         Ipv4Addr,
         SocketAddr,
         SocketAddrV4,
         TcpListener,
         TcpStream,
+    }, string::FromUtf8Error,
+};
+
+use crate::{
+    error::{
+        NoneError,
+        error,
     },
-    string::FromUtf8Error,
+    tcp_errors::{
+        StreamTooLongError,
+        UnknownRequestTypeError,
+    },
 };
 
-use crate::error::{
-    NoneError,
-    error,
-};
-
-const BUFFER_SIZE: usize = 8192;
+pub const BUFFER_SIZE: usize = 8192; // This is the default size for a BufReader as well
 
 pub async fn handle_listener(order: &str, listener: TcpListener) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("({}) | Socket handler thread at {} initialised correctly!", order, match listener.local_addr() {
@@ -57,19 +62,91 @@ async fn handle_stream(mut stream: TcpStream, socket: SocketAddr) {
         },
     };
 
-    let mut stream_string_vec: Vec<&str> = stream_string.split("\n").collect();
-    stream_string_vec.pop(); // All the remaining \0 from the buffer
+    let mut stream_string_vec: Vec<&str> = stream_string.split("\r\n").collect();
+    if stream_string_vec[stream_string_vec.len() - 1].contains("\0") {
+        stream_string_vec.pop();// All the remaining \0 from the buffer
+    } else {
+        if stream_string_vec[stream_string_vec.len() - 2] != "" {
+            error::<StreamTooLongError>("Could not fully read TCP stream", &StreamTooLongError);
+        };
+    };
 
-    println!("{:?}", stream_string_vec);
+    // Get response based on request type
+    let mut response: Vec<u8> = vec![];
+    if stream_string_vec[0].contains("GET") {
+        println!("GET request");
+
+        response = get_request(&stream_string_vec);
+    } else if stream_string_vec[0].contains("POST") {
+        println!("POST request");
+
+        todo!();
+    } else {
+        error::<UnknownRequestTypeError>(&("Could not match request type in header ".to_owned() + stream_string_vec[0]), &UnknownRequestTypeError);
+    };
+
+    stream.write(&response);
+
+    ////println!("{:?}", stream_string_vec);
 }
 
 #[allow(dead_code)]
-fn display_vec(vector: Vec<u8>) {
+fn display_vec(vector: &Vec<u8>) {
     for index in vector {
-        if index != 0 {
+        if *index != 0 {
             print!("{}, ", index);
         };
     };
 
     println!();
+}
+
+fn get_request(request: &Vec<&str>) -> Vec<u8> {
+    let header_first: Vec<&str> = request[0].split(" ").collect();
+    let resource: &str = header_first[1];
+
+    let page: Vec<u8> = fs::read("pages/404.html").unwrap();
+
+    // TODO get correct page
+    // TODO ensure requested resource is safe for transmission (do not sent conf file)
+    // TODO get return MIME type
+
+    let mut response: Vec<u8> = vec![];
+
+    response = b"HTTP/1.1 200 OK\r\n".to_vec();
+
+    response.add_header("Server", "Astra");
+    response.add_header("Content-Type", "text/html; charset=utf-8");
+    response.add_header("Cache-Control", "max-age=600");
+
+    response.add_header("Content-Length", &page.len().to_string());
+    response.add_body(page);
+
+    display_vec(&response);
+
+    response
+}
+
+trait RequestBase {
+    fn add_header(&mut self, header: &str, value: &str) -> Self;
+
+    fn add_body(&mut self, data: Vec<u8>) -> Self;
+}
+
+impl RequestBase for Vec<u8> {
+    fn add_header(&mut self, header: &str, value: &str) -> Self {
+        let mut addition: Vec<u8> = (header.to_string() + ": " + value + "\r\n").as_bytes().to_vec();
+
+        self.append(&mut addition);
+
+        self.to_owned()
+    }
+
+    fn add_body(&mut self, data: Vec<u8>) -> Self {
+        let mut body: Vec<u8> = [[b"\r\n".to_vec(), data].concat(), b"\r\n".to_vec()].concat();
+
+        self.append(&mut body);
+        
+        self.to_owned()
+    }
 }
