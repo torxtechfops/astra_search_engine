@@ -1,14 +1,35 @@
 use std::{
-    fmt, fs::{self, File}, io::{Error, Write}, net::{
-        AddrParseError, IpAddr, SocketAddr,
-    }, str::FromStr
+    fmt, 
+    fs::{
+        self, 
+        File}, 
+        io::{
+            Error, 
+            Write
+        }, 
+    net::{
+        AddrParseError, 
+        IpAddr, 
+        SocketAddr,
+    }, 
+    str::FromStr
 };
 use regex::Regex;
 
-use crate::{config::SettingType::{CriticalDuplicate, CriticalUnique, Duplicate, Unique}, error::{
-    error, fatal_error,
-}};
+use crate::{
+    config::SettingType::{
+        CriticalDuplicate, 
+        CriticalUnique, 
+        Duplicate, 
+        Unique
+    }, 
+    error::{
+        error, 
+        fatal_error,
+    },
+};
 
+#[allow(dead_code)]
 pub enum SettingType {
     CriticalUnique, // Setting must have only one value
     CriticalDuplicate, // Setting must exist, but may have any quantity
@@ -231,7 +252,7 @@ impl NewFile for Config {
 pub trait BindSocket {
     fn get_bind_socket(&self, address_index: usize, port_index: usize) -> SocketAddr;
 
-    fn get_socket_numbers(&self) -> usize;
+    fn get_socket_numbers(&self) -> (usize, usize);
 }
 
 impl BindSocket for Config {
@@ -239,8 +260,8 @@ impl BindSocket for Config {
         return (self.address[address_index], self.port[port_index]).into()
     }
 
-    fn get_socket_numbers(&self) -> usize {
-        return self.address.len();
+    fn get_socket_numbers(&self) -> (usize, usize) {
+        return (self.address.len(), self.port.len());
     }
 }
 

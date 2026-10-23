@@ -1,4 +1,5 @@
 use std::{
+    fmt,
     error::Error,
     process::exit
 };
@@ -20,3 +21,14 @@ pub fn error<ErrorParam: Error>(text: &str, rust_error: &dyn Error) {
         eprintln!("Nonfatal error occured: {}", text);
     };
 }
+
+#[derive(Debug, Clone)]
+pub struct NoneError;
+
+impl fmt::Display for NoneError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "")
+    }
+}
+
+impl std::error::Error for NoneError {}
