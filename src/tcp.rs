@@ -15,6 +15,7 @@ use crate::{
         error,
     },
     tcp_errors::{
+        ResponseNotFullyWrittenError,
         StreamTooLongError,
         UnknownRequestTypeError,
     },
@@ -85,7 +86,16 @@ async fn handle_stream(mut stream: TcpStream, socket: SocketAddr) {
         error::<UnknownRequestTypeError>(&("Could not match request type in header ".to_owned() + stream_string_vec[0]), &UnknownRequestTypeError);
     };
 
-    stream.write(&response);
+    match stream.write(&response) {
+        Ok(u) => {
+            if u != response.len() {
+                error::<ResponseNotFullyWrittenError>("Couldn't write all response bytes to stream", &ResponseNotFullyWrittenError(u, response.len()));              
+            };
+        },
+        Err(_) => {
+            error::<NoneError>("Couldn't write to TCP stream", &NoneError);
+        },
+    };
 
     ////println!("{:?}", stream_string_vec);
 }
@@ -121,8 +131,6 @@ fn get_request(request: &Vec<&str>) -> Vec<u8> {
 
     response.add_header("Content-Length", &page.len().to_string());
     response.add_body(page);
-
-    display_vec(&response);
 
     response
 }

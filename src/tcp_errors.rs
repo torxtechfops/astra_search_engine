@@ -23,3 +23,14 @@ impl fmt::Display for UnknownRequestTypeError {
 }
 
 impl std::error::Error for UnknownRequestTypeError {}
+
+#[derive(Debug, Clone)]
+pub struct ResponseNotFullyWrittenError(pub usize, pub usize);
+
+impl fmt::Display for ResponseNotFullyWrittenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Could not fully write TCP response - {}/{} bytes written", self.0, self.1)
+    }
+}
+
+impl std::error::Error for ResponseNotFullyWrittenError {}
