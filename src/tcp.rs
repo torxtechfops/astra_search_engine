@@ -123,6 +123,8 @@ fn get_request(request: &Vec<&str>) -> Vec<u8> {
         requested_resource = "index.html";
     } else if requested_resource == "/favicon.ico" {
         requested_resource = "images/favicon.png";
+    } else if requested_resource.contains("/search?") {
+        requested_resource = "search.html";
     };
 
     // TODO get return MIME type
@@ -154,7 +156,7 @@ fn get_request(request: &Vec<&str>) -> Vec<u8> {
 
     response.add_header("Server", "Astra");
     response.add_header("Content-Type", content_type);
-    response.add_header("Cache-Control", "max-age=600");
+    //response.add_header("Cache-Control", "max-age=600");
 
     response.add_header("Content-Length", &resource.len().to_string());
     response.add_body(resource);
