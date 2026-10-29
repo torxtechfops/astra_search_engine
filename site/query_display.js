@@ -7,3 +7,5 @@ query = query.replaceAll("+", " ");
 search_text.value = query;
 
 document.title = query + " | Astra";
+
+// TODO Get uncached results from our search engine of choice
