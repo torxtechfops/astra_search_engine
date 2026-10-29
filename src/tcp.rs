@@ -119,6 +119,10 @@ fn get_request(request: &Vec<&str>) -> Vec<u8> {
     let header_first: Vec<&str> = request[0].split(" ").collect();
     let mut requested_resource: &str = header_first[1];
 
+    // TODO [Low] Address this
+    let binding: String = requested_resource.replace(" ", "+");
+    requested_resource = &binding;
+
     if requested_resource == "/" {
         requested_resource = "index.html";
     } else if requested_resource == "/favicon.ico" {
@@ -127,7 +131,6 @@ fn get_request(request: &Vec<&str>) -> Vec<u8> {
         requested_resource = "search.html";
     };
 
-    // TODO get return MIME type
     let requested_split: Vec<&str> = requested_resource.split(".").collect();
     let content_type: &str = get_mime_type(requested_split[requested_split.len() - 1]);
 

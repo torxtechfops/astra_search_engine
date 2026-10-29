@@ -5,9 +5,7 @@ search_button.addEventListener("click", function () {
     console.log(search_text);
 
     let query = search_text.value;
-    query = query.replace(" ", "+");
-
-    // TODO convert ' ' to '+'
+    query = query.replaceAll(" ", "+"); // Also done server side
 
     let redirect = "search?q=" + query;
 

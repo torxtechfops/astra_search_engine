@@ -3,9 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Astra - SEARCH QUERY</title>
+    <title>SEARCH QUERY | Astra</title>
 </head>
 <body>
-    
+    <div class="search_box">
+        <input type="text" class="search_text" id="search_text" placeholder="Search..." aria-label="Search text">
+        |
+        <button class="search_button" id="search_button" aria-label="Search button">🔎</button>
+    </div>
+
+    <hr>
+
+    <div class="main_page">
+        <div class="results">
+            <div class="cache_warning" id="cache_warning">
+                Displaying results from low latency cache.<br>
+                Additional search data is being fetched...
+            </div>
+
+            <!-- Example, don't show the user -->
+            <!-- For bandwidth reasons, favicons are not fetched/displayed -->
+            <div class="search" id="example_search">
+                <a href="https:www.example.dont/cool_site" class="title">Title - My really cool site</a>
+                <br>
+                <a href=https://www.example.dont/cool_site>https://www.example.dont/cool_site</a>
+                <p class="description">This is a long winded description, probably entirely useless, about
+                    my really cool site. It doesn't describe anything about the actual 
+                    site but wouldn't it be great if you could actually tell anything 
+                    about my useless, awful site without having to click it only to find 
+                    out that I'm actually...
+                </p>
+            </div>
+        </div>
+
+        <div class="statistics">
+            <h3>Search statistics:</h3>
+            Cached results: <br>
+            Extra results: <br>
+            Extra load time: <br>
+        </div>
+    </div>
+
+    <link rel="stylesheet" href="search_style.css">
 </body>
+<script src="handle_searches.js"></script> <!-- For searches using the search box -->
+<script src="query_display.js"></script> <!-- Display query from URL in search box-->
 </html>
