@@ -42,6 +42,7 @@ pub enum SettingType {
 pub struct Config {
     address: Vec<IpAddr>,
     port: Vec<u16>,
+    api_key: String,
 }
 
 pub trait FromFile {
@@ -98,6 +99,22 @@ impl FromFile for Config {
             );
 
             interim_vec
+        };
+
+        created_config.api_key = {
+            let key_found: Vec<String> = Config::handle_setting(&file_string, "APIKey", CriticalUnique);
+
+            if key_found.len() > 1 {
+                fatal_error::<DuplicateSettingsError>("Too many values for APIKey setting in astra.conf", &DuplicateSettingsError);
+
+                unreachable!();
+            } else if key_found.len() == 0 {
+                fatal_error::<RequiredSettingMissingError>("Missing APIKey value", &RequiredSettingMissingError);
+
+                unreachable!();
+            } else {
+                key_found[0].clone()
+            }
         };
 
         return Ok(created_config)
@@ -236,7 +253,8 @@ impl NewFile for Config {
         configuration file must be edited to be used \
         normally. Note: config file must end in a new line\n\
         Address=127.0.0.1\n\
-        Port=80,443\n"; // TODO Link with default config
+        Port=80,443\n\
+        APIKey=invalid\n"; // TODO Link with default config
 
         match file.write(standard_config.as_bytes()) {
             Ok(_) => (),
@@ -270,7 +288,18 @@ impl Default for Config {
         Config {
             address: vec![IpAddr::from_str("127.0.0.1").expect("This is a built-in default and should not fail")],
             port: vec![80_u16, 443_u16],
+            api_key: Default::default()
         }
+    }
+}
+
+pub trait API {
+    fn get_api_key(&self) -> String;
+}
+
+impl API for Config {
+    fn get_api_key(&self) -> String {
+        return self.api_key.clone()
     }
 }
 
@@ -306,3 +335,14 @@ impl fmt::Display for RequiredSettingMissingError {
 }
 
 impl std::error::Error for RequiredSettingMissingError {}
+
+#[derive(Debug, Clone)]
+pub struct DuplicateSettingsError;
+
+impl fmt::Display for DuplicateSettingsError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "more than one entry for unique config values")
+    }
+}
+
+impl std::error::Error for DuplicateSettingsError {}

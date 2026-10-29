@@ -10,7 +10,8 @@ use std::{
         SocketAddrV4,
         TcpListener,
         TcpStream,
-    }, string::FromUtf8Error,
+    },
+    string::FromUtf8Error,
 };
 
 use crate::{
@@ -23,11 +24,19 @@ use crate::{
         StreamTooLongError,
         UnknownRequestTypeError,
     },
+    tcp::{
+        RequestType::{
+            Resource,
+            Cache,
+            Search,
+        },
+    },
+    search::search,
 };
 
 pub const BUFFER_SIZE: usize = 8192; // This is the default size for a BufReader as well
 
-pub async fn handle_listener(order: &str, listener: TcpListener) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn handle_listener(order: &str, listener: TcpListener, api_key: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     println!("({}) | Socket handler thread at {} initialised correctly!", order, match listener.local_addr() {
         Ok(a) => a.to_string(),
         Err(_) => {
@@ -39,7 +48,7 @@ pub async fn handle_listener(order: &str, listener: TcpListener) -> Result<(), B
     loop {
         let (request_stream, request_address): (std::net::TcpStream, std::net::SocketAddr) = listener.accept()?;
 
-        handle_stream(request_stream, request_address).await
+        handle_stream(request_stream, request_address, api_key).await
     };
 }
 
@@ -47,7 +56,7 @@ pub fn default_socket() -> SocketAddr {
     SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 8080))
 }
 
-async fn handle_stream(mut stream: TcpStream, socket: SocketAddr) {
+async fn handle_stream(mut stream: TcpStream, _socket: SocketAddr, api_key: &str) {
     ////println!("Handling {}...", socket);
 
     let mut buf: Vec<u8> = vec![0; BUFFER_SIZE];
@@ -68,6 +77,7 @@ async fn handle_stream(mut stream: TcpStream, socket: SocketAddr) {
     };
 
     let mut stream_string_vec: Vec<&str> = stream_string.split("\r\n").collect();
+
     if stream_string_vec[stream_string_vec.len() - 1].contains("\0") {
         stream_string_vec.pop();// All the remaining \0 from the buffer
     } else {
@@ -81,7 +91,7 @@ async fn handle_stream(mut stream: TcpStream, socket: SocketAddr) {
     if stream_string_vec[0].contains("GET") {
         ////println!("GET request");
 
-        response = get_request(&stream_string_vec);
+        response = get_request(&stream_string_vec, api_key).await;
     } else if stream_string_vec[0].contains("POST") {
         ////println!("POST request");
 
@@ -115,7 +125,7 @@ fn display_vec(vector: &Vec<u8>) {
     println!();
 }
 
-fn get_request(request: &Vec<&str>) -> Vec<u8> {
+async fn get_request(request: &Vec<&str>, api_key: &str) -> Vec<u8> {
     let header_first: Vec<&str> = request[0].split(" ").collect();
     let mut requested_resource: &str = header_first[1];
 
@@ -127,10 +137,29 @@ fn get_request(request: &Vec<&str>) -> Vec<u8> {
         requested_resource = "index.html";
     } else if requested_resource == "/favicon.ico" {
         requested_resource = "images/favicon.png";
-    } else if requested_resource.contains("/search?") {
+    } else if requested_resource.starts_with("/search?") {
         requested_resource = "search.html";
     };
 
+    let request_type: RequestType;
+    if requested_resource.starts_with("/cache_query?") {
+        request_type = Cache;
+    } else if requested_resource.starts_with("/search_query?") {
+        request_type = Search;
+    } else {
+        request_type = Resource;
+    };
+
+    let response: Vec<u8> = match request_type {
+        Resource => resource_get(requested_resource),
+        Search => search(requested_resource, api_key).await,
+        Cache => todo!(),
+    };
+
+    response
+}
+
+fn resource_get(requested_resource: &str) -> Vec<u8> {
     let requested_split: Vec<&str> = requested_resource.split(".").collect();
     let content_type: &str = get_mime_type(requested_split[requested_split.len() - 1]);
 
@@ -228,7 +257,7 @@ impl ErrorResponse for ResourceError {
     }
 }
 
-trait RequestBase {
+pub trait RequestBase {
     fn add_header(&mut self, header: &str, value: &str) -> Self;
 
     fn add_body(&mut self, data: Vec<u8>) -> Self;
@@ -250,4 +279,10 @@ impl RequestBase for Vec<u8> {
         
         self.to_owned()
     }
+}
+
+enum RequestType {
+    Resource, // A page, script, or other web related document already stored is requested
+    Cache, // A cache search is requested
+    Search, // A search engine query is requested
 }
