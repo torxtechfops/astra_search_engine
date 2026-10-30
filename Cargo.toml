@@ -4,6 +4,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-native-tls = "0.2.18"
+native-tls = {version = "0.2.18", features = ["vendored"]}
 regex = "^1.13.1"
 tokio = {version = "^1.53.3", features = ["rt", "rt-multi-thread", "macros"]}

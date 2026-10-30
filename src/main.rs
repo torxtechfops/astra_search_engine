@@ -48,7 +48,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         }
     };
 
-    // TODO Multiple listeners
     let (addresses, ports): (usize, usize) = config.get_socket_numbers();
     println!("Add: {} | Port: {}", addresses, ports);
 

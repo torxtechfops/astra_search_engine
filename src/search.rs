@@ -11,6 +11,8 @@ use std::{
     string::FromUtf8Error,
 };
 
+use native_tls::{Protocol, TlsConnector, TlsConnectorBuilder};
+
 use crate::{
     error::{
         NoneError,
@@ -23,9 +25,7 @@ use crate::{
 };
 
 pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
-    println!("Here");
-
-    let address: SocketAddr = match ("serpapi.com:80").to_socket_addrs() {
+    let address: SocketAddr = match ("serpapi.com:443").to_socket_addrs() {
         Ok(addresses) => {
             let addresses_collected: Vec<SocketAddr> = addresses.collect();
 
@@ -38,28 +38,56 @@ pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
         },
     };
 
-    println!("{:?}", address);
+    ////println!("{:?}", address);
 
-    let mut stream: TcpStream = match TcpStream::connect(address) {
+    let tls: TlsConnector = match TlsConnector::builder()
+        .min_protocol_version(None)
+        .max_protocol_version(Some(Protocol::Tlsv13))
+        .build() {
+        Ok(t) => t,
+        Err(_) => {
+            error::<NoneError>("Failed to build TLS connector", &NoneError);
+
+            return SearchError::service_unavaliable();
+        },
+    };
+
+    let stream: TcpStream = match TcpStream::connect(address) {
         Ok(s) => s,
         Err(_) => {
-            error::<NoneError>("Could not connect to search API", &NoneError);
+            error::<NoneError>("Unable to create TCP stream", &NoneError);
+
+            return SearchError::service_unavaliable();
+        },
+    };
+
+    let mut tls_stream = match tls.connect("serpapi.com", stream) {
+        Ok(t) => t,
+        Err(e) => {
+            error::<native_tls::HandshakeError<TcpStream>>("Handshake error with API server", &e);
 
             return SearchError::service_unavaliable();
         },
     };
 
     let mut request: Vec<u8> = vec![];
-    request = (format!("GET /search.json?engine=duckduckgo_light&q={}&api_key={}", query, api_key)).as_bytes().to_vec();
-    request.add_header("User-Agent", "Astra");
-    request.add_header("Accept", "application/json");
+    request = (format!("GET /search.json?engine=duckduckgo_light&q={}&api_key={} HTTP/1.1\r\n", query, api_key))
+        .as_bytes()
+        .to_vec();
+
+    request.add_header("Host", "serpapi.com");
+    request.add_header("User-Agent", "Astra/0.1");
+    ////request.add_header("Accept", "*/*");
+    request.add_header("Connection", "Keep-Alive");
+    ////request.add_header("Accept-Encoding", "gzip, deflate, br, zstd");
+
+    request.append(&mut b"\r\n\r\n".to_vec());
 
     // TODO verify all written
-    stream.write(&request);
+    tls_stream.write(&request);
 
     let mut buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
-
-    println!("{:?}", stream.read(&mut buffer));
+    println!("{:?}", tls_stream.read(&mut buffer));
 
     let stream_string: String = match String::from_utf8(buffer.to_vec()) {
         Ok(s) => s,
@@ -70,6 +98,8 @@ pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
     };
 
     let mut stream_string_vec: Vec<&str> = stream_string.split("\r\n").collect();
+
+    ////stream_string_vec.pop();
 
     println!("{:?}", stream_string_vec);
 
