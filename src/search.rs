@@ -1,17 +1,17 @@
 use std::{
-    io::{
-        Read,
-        Write
-    },
-    net::{
+    fmt, io::{
+        BufRead, BufReader, Write,
+    }, net::{
         SocketAddr,
         TcpStream,
         ToSocketAddrs,
-    },
-    string::FromUtf8Error,
+    }, string::FromUtf8Error,
 };
 
-use native_tls::{Protocol, TlsConnector, TlsConnectorBuilder};
+use native_tls::{
+    Protocol,
+    TlsConnector,
+};
 
 use crate::{
     error::{
@@ -19,10 +19,11 @@ use crate::{
         error,
     },
     tcp::{
-        BUFFER_SIZE,
         RequestBase,
     },
 };
+
+const HTTP_BUFFER_SIZE: usize = 16384;
 
 pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
     let address: SocketAddr = match ("serpapi.com:443").to_socket_addrs() {
@@ -52,7 +53,7 @@ pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
         },
     };
 
-    let stream: TcpStream = match TcpStream::connect(address) {
+    let mut stream: TcpStream = match TcpStream::connect(address) {
         Ok(s) => s,
         Err(_) => {
             error::<NoneError>("Unable to create TCP stream", &NoneError);
@@ -60,8 +61,14 @@ pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
             return SearchError::service_unavaliable();
         },
     };
+    // match stream.set_read_timeout(Some(Duration::from_millis(60000))) {
+    //     Ok(_) => {},
+    //     Err(_) => {
+    //         error::<NoneError>("Unable to set read timeout for TCP Stream", &NoneError);
+    //     },
+    // };
 
-    let mut tls_stream = match tls.connect("serpapi.com", stream) {
+    let mut tls_stream: native_tls::TlsStream<TcpStream> = match tls.connect("serpapi.com", stream) {
         Ok(t) => t,
         Err(e) => {
             error::<native_tls::HandshakeError<TcpStream>>("Handshake error with API server", &e);
@@ -83,25 +90,48 @@ pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
 
     request.append(&mut b"\r\n\r\n".to_vec());
 
-    // TODO verify all written
-    tls_stream.write(&request);
-
-    let mut buffer: [u8; BUFFER_SIZE] = [0; BUFFER_SIZE];
-    println!("{:?}", tls_stream.read(&mut buffer));
-
-    let stream_string: String = match String::from_utf8(buffer.to_vec()) {
-        Ok(s) => s,
+    // Verify all written
+    match tls_stream.write(&request) {
+        Ok(u) => {
+            if u != request.len() {
+                error::<NoneError>(&format!("Failed to write all bytes to TCP stream {}/{}", u, request.len()), &NoneError);
+            }
+        },
         Err(e) => {
-            error::<FromUtf8Error>("Could not convert TCP bytes to UTF-8 string", &e);
-            "".to_string()
+            error::<std::io::Error>("Failed to write bytes to TCP stream", &e);
+
+            return SearchError::service_unavaliable();
         },
     };
 
-    let mut stream_string_vec: Vec<&str> = stream_string.split("\r\n").collect();
+    // Required as TCP data may not all be written and we must verify all content has been recieved
+    let mut reader: BufReader<&mut native_tls::TlsStream<TcpStream>> = BufReader::new(&mut tls_stream);
 
-    ////stream_string_vec.pop();
+    let mut recieved: Vec<u8> = vec![];
 
-    println!("{:?}", stream_string_vec);
+    // Why does the API refuse to end with a new line? who can say...
+    while !recieved.ends_with("}\n}".as_bytes()) {
+        let to_add: Vec<u8> = match reader.fill_buf() {
+            Ok(v) => v.to_vec(),
+            Err(e) => {
+                error::<std::io::Error>("Couldn't read TCP stream to buffer", &e);
+
+                return SearchError::unknown_error("Couldn't read gateway response");
+            },
+        };
+
+        reader.consume(to_add.len());
+
+        recieved = [recieved, to_add].concat();
+
+        ////println!("{:?}", recieved);
+    };
+
+    let stream_string: String = String::from_utf8(recieved.clone()).unwrap();
+    
+    println!("{}", stream_string);
+
+    panic!();
 
     todo!();
 }
@@ -118,6 +148,10 @@ struct SearchError {}
 
 trait Errors {
     fn service_unavaliable() -> Vec<u8>;
+
+    fn bad_gateway(status: &str) -> Vec<u8>;
+
+    fn unknown_error(info: &str) -> Vec<u8>;
 }
 
 impl Errors for SearchError {
@@ -135,4 +169,55 @@ impl Errors for SearchError {
 
         response
     }
+
+    fn bad_gateway(status: &str) -> Vec<u8> {
+        //Bad gateway, down!
+        error::<HTTPError>("Bad gateway response encountered", &HTTPError(status.to_string()));
+
+        let mut response: Vec<u8> = vec![];
+
+        response = ("HTTP/1.1 502 Bad Gateway\r\n").as_bytes().to_vec();
+
+        response.add_header("Server", "Astra");
+        response.add_header("Content-Type", "text/plain");
+
+        let body: Vec<u8> = status.as_bytes().to_vec();
+
+        response.add_header("Content-Length", &body.len().to_string());
+
+        response.add_body(body);
+
+        response
+    }
+
+    fn unknown_error(information: &str) -> Vec<u8> {
+        //Bad gateway, down!
+        error::<HTTPError>("Error parsing API response", &HTTPError(information.to_string()));
+
+        let mut response: Vec<u8> = vec![];
+
+        response = ("HTTP/1.1 500 Internal Server Error\r\n").as_bytes().to_vec();
+
+        response.add_header("Server", "Astra");
+        response.add_header("Content-Type", "text/plain");
+
+        let body: Vec<u8> = information.as_bytes().to_vec();
+
+        response.add_header("Content-Length", &body.len().to_string());
+
+        response.add_body(body);
+
+        response
+    }
 }
+
+#[derive(Debug, Clone)]
+struct HTTPError(String);
+
+impl fmt::Display for HTTPError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::error::Error for HTTPError {}
