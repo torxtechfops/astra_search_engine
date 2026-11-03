@@ -81,3 +81,4 @@ rustc-ice-*.txt
 
 # Astra config files
 **/astra.conf
+**/*.temp

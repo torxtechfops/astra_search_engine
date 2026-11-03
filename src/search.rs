@@ -1,11 +1,14 @@
 use std::{
-    fmt, io::{
+    fmt,
+    io::{
         BufRead, BufReader, Write,
-    }, net::{
+    },
+    net::{
         SocketAddr,
         TcpStream,
         ToSocketAddrs,
-    }, string::FromUtf8Error,
+    },
+    string::FromUtf8Error,
 };
 
 use native_tls::{
@@ -23,9 +26,11 @@ use crate::{
     },
 };
 
-const HTTP_BUFFER_SIZE: usize = 16384;
+pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
+    // Remove "/search_query?"
+    let query_string: String = query.replacen("/search_query?", "", 1);
+    query = &query_string;
 
-pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
     let address: SocketAddr = match ("serpapi.com:443").to_socket_addrs() {
         Ok(addresses) => {
             let addresses_collected: Vec<SocketAddr> = addresses.collect();
@@ -53,7 +58,7 @@ pub async fn search(query: &str, api_key: &str) -> Vec<u8> {
         },
     };
 
-    let mut stream: TcpStream = match TcpStream::connect(address) {
+    let stream: TcpStream = match TcpStream::connect(address) {
         Ok(s) => s,
         Err(_) => {
             error::<NoneError>("Unable to create TCP stream", &NoneError);
