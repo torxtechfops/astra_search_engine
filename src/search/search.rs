@@ -21,6 +21,7 @@ use crate::{
     error::{
         NoneError,
         error,
+        api_error,
     },
     tcp::tcp_request::{
         RequestBase,
@@ -149,7 +150,53 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
     
     println!("{}", stream_string);
 
-    panic!();
+    let stream_string_vec: Vec<&str> = stream_string.split("\r\n").collect();
+
+    // [0]HTTPS/1.1 [1]200 [3]OK
+    let status_number: &str = stream_string_vec[0].split(" ").collect::<Vec<&str>>()[1];
+    let mut bad_gateway: bool = true;
+    match status_number {
+        // See https://serpapi.com/api-status-and-error-codes
+        "200" => {
+            bad_gateway = false;
+        },
+        "400" => {
+            api_error("Bad request to API server", status_number);
+        },
+        "401" => {            
+            api_error("API key couldn't be found by server", status_number);
+        },
+        "403" => {
+            api_error("API key expired or invalid", status_number);
+        },
+        "404" => {
+            api_error("API resource could not be found", status_number);
+        },
+        "410" => {
+            api_error("API resource no longer exists", status_number);
+        },
+        "429" => {
+            api_error("API rate limit exceeded", status_number);
+        },
+        "500" => {
+            api_error("Unknown API error", status_number);
+        },
+        "503" => {
+            api_error("API service unavaliable", status_number);
+        },
+        _ => {
+            api_error("Unknown API error", status_number);
+            error::<NoneError>("Unexpected response from API server", &NoneError);
+        },
+    };
+
+    if bad_gateway {
+        return SearchError::bad_gateway(status_number)
+    };
+
+    get_results(stream_string);
+
+    todo!()
 }
 
 fn get_results(response: String) -> Vec<SearchResult> {
