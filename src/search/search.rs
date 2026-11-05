@@ -1,7 +1,8 @@
 use std::{
-    fmt,
     io::{
-        BufRead, BufReader, Write,
+        BufRead,
+        BufReader,
+        Write,
     },
     net::{
         SocketAddr,
@@ -21,8 +22,12 @@ use crate::{
         NoneError,
         error,
     },
-    tcp::{
+    tcp::tcp_request::{
         RequestBase,
+    },
+    search::{
+        search_result::SearchResult,
+        search_errors::HTTPError,
     },
 };
 
@@ -132,21 +137,23 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
         ////println!("{:?}", recieved);
     };
 
-    let stream_string: String = String::from_utf8(recieved.clone()).unwrap();
+    // TODO Handle this error potential
+    let stream_string: String = match String::from_utf8(recieved.clone()) {
+        Ok(s) => s,
+        Err(e) => {
+            error::<FromUtf8Error>("Could not convert response to UTF-8", &e);
+
+            return SearchError::unknown_error("Couldn't process gateway response");
+        },
+    };
     
     println!("{}", stream_string);
 
     panic!();
-
-    todo!();
 }
 
-async fn do_search(query: String, api_key: &str) -> String {
-    println!("Querying for: {}", query);
-
-    let res: String = format!("https://serpapi.com/search.json?engine=duckduckgo_light&q={}&api_key={}", query, api_key);
-
-    res
+fn get_results(response: String) -> Vec<SearchResult> {
+    todo!()
 }
 
 struct SearchError {}
@@ -215,14 +222,3 @@ impl Errors for SearchError {
         response
     }
 }
-
-#[derive(Debug, Clone)]
-struct HTTPError(String);
-
-impl fmt::Display for HTTPError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl std::error::Error for HTTPError {}

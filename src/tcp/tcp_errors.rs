@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::tcp::BUFFER_SIZE;
+use crate::tcp::tcp::BUFFER_SIZE;
 
 #[derive(Debug, Clone)]
 pub struct StreamTooLongError;
