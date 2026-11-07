@@ -22,6 +22,16 @@ impl fmt::Display for SearchResult {
     }
 }
 
+pub trait Json {
+    fn into_json(&self) -> String;
+}
+
+impl Json for SearchResult {
+    fn into_json(&self) -> String {
+        format!("{{\n\"title\": {}\n\"Link\": {}\n\"Snippet\": {}\n}}", self.title, self.link, self.snippet)
+    }
+}
+
 #[allow(dead_code)]
 pub trait DisplayResults {
     fn display_all(&self);

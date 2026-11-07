@@ -192,7 +192,7 @@ fn resource_get(requested_resource: &str) -> Vec<u8> {
 
     response.add_header("Server", "Astra");
     response.add_header("Content-Type", content_type);
-    //response.add_header("Cache-Control", "max-age=600");
+    response.add_header("Cache-Control", "max-age=600");
 
     response.add_header("Content-Length", &resource.len().to_string());
     response.add_body(resource);

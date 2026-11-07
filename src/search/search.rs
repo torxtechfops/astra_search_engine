@@ -19,10 +19,21 @@ use native_tls::{
 
 use crate::{
     error::{
-        NoneError, api_error, error,
-    }, search::{
-        search_errors::{HTTPError, NoResultsError}, search_result::{SearchResult, DisplayResults},
-    }, tcp::tcp_request::RequestBase,
+        NoneError,
+        api_error,
+        error,
+    },
+    search::{
+        search_errors::{
+            HTTPError,
+            NoResultsError
+        },
+        search_result::{
+            SearchResult,
+            Json,
+        },
+    },
+    tcp::tcp_request::RequestBase,
 };
 
 pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
@@ -187,9 +198,39 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
         return SearchError::bad_gateway(status_number)
     };
 
-    get_results(stream_string);
+    let results: Vec<SearchResult> = match get_results(stream_string) {
+        Ok(r) => r,
+        Err(e) => {
+            error::<NoResultsError>("No results obtained from API response", &e);
 
-    todo!()
+            return SearchError::bad_gateway("500")
+        },
+    };
+
+    let mut body: Vec<u8> = b"[".to_vec();
+    let mut index: usize = 1;
+    let len: usize = results.len();
+    for result in results {
+        body.append(&mut result.into_json().as_bytes().to_vec());
+
+        if index < len {
+            body.append(&mut b",".to_vec());
+        };
+        index += 1;
+    };
+
+    body.append(&mut b"]".to_vec());
+
+    let mut response: Vec<u8> = ("HTTP/1.1 200 Ok \r\n").as_bytes().to_vec();
+    response.add_header("Server", "Astra");
+    response.add_header("Content-Type", "application/json");
+    response.add_header("Cache-Control", "max-age=600");
+
+    response.add_header("Content-Length", &body.len().to_string());
+
+    response.add_body(body);
+    
+    response
 }
 
 fn get_results(response: String) -> Result<Vec<SearchResult>, NoResultsError> {
@@ -240,11 +281,16 @@ fn get_results(response: String) -> Result<Vec<SearchResult>, NoResultsError> {
 
             if line_vec.len() == 2 {
                 let len: usize = results.len() - 1;
-                results[len].snippet = line_vec[1].to_string();
+                let snippet: &str = line_vec[1].trim_end_matches(",");
+                results[len].snippet = snippet.to_string();
             };
         } else if line.contains("]") {
             break;
         };
+    };
+
+    if results.len() == 0 {
+        return Err(NoResultsError);
     };
 
     ////results.display_all();
