@@ -19,17 +19,10 @@ use native_tls::{
 
 use crate::{
     error::{
-        NoneError,
-        error,
-        api_error,
-    },
-    tcp::tcp_request::{
-        RequestBase,
-    },
-    search::{
-        search_result::SearchResult,
-        search_errors::HTTPError,
-    },
+        NoneError, api_error, error,
+    }, search::{
+        search_errors::{HTTPError, NoResultsError}, search_result::{SearchResult, DisplayResults},
+    }, tcp::tcp_request::RequestBase,
 };
 
 pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
@@ -89,7 +82,7 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
     };
 
     let mut request: Vec<u8> = vec![];
-    request = (format!("GET /search.json?engine=duckduckgo_light&q={}&api_key={} HTTP/1.1\r\n", query, api_key))
+    request = (format!("GET /search.json?engine=duckduckgo_light&q={}&api_key={}&json_restrictor=organic_results HTTP/1.1\r\n", query, api_key))
         .as_bytes()
         .to_vec();
 
@@ -121,7 +114,7 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
     let mut recieved: Vec<u8> = vec![];
 
     // Why does the API refuse to end with a new line? who can say...
-    while !recieved.ends_with("}\n}".as_bytes()) {
+    while !recieved.ends_with("\n}".as_bytes()) {
         let to_add: Vec<u8> = match reader.fill_buf() {
             Ok(v) => v.to_vec(),
             Err(e) => {
@@ -138,7 +131,7 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
         ////println!("{:?}", recieved);
     };
 
-    // TODO Handle this error potential
+    // Handle this error potential
     let stream_string: String = match String::from_utf8(recieved.clone()) {
         Ok(s) => s,
         Err(e) => {
@@ -148,7 +141,7 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
         },
     };
     
-    println!("{}", stream_string);
+    ////println!("{}", stream_string);
 
     let stream_string_vec: Vec<&str> = stream_string.split("\r\n").collect();
 
@@ -199,8 +192,68 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
     todo!()
 }
 
-fn get_results(response: String) -> Vec<SearchResult> {
-    todo!()
+fn get_results(response: String) -> Result<Vec<SearchResult>, NoResultsError> {
+    let response_split: Option<(&str, &str)> = response.split_once("\r\n\r\n");
+
+    let body_vec: Vec<&str> = match response_split {
+        Some((_, body)) => {
+            body.split("\n").collect::<Vec<&str>>()
+        },
+        None => {
+            error::<NoResultsError>("Error getting results", &NoResultsError);
+
+            return Err(NoResultsError)
+        },
+    };
+
+    let mut results: Vec<SearchResult> = vec![];
+
+    let mut body_iter: std::slice::Iter<'_, &str> = body_vec.iter();
+    loop {
+        let line = match body_iter.next() {
+            Some(l) => l,
+            None => {
+                break;
+            },
+        };
+
+        ////println!("{}", line);
+
+        if line.contains(&str_to_json_field("title")) {
+            results.push(SearchResult::default());
+
+            let line_vec: Vec<&str> = line.split(&str_to_json_field("title")).collect::<Vec<&str>>();
+
+            if line_vec.len() == 2 {
+                let len: usize = results.len() - 1;
+                results[len].title = line_vec[1].to_string();
+            };
+        } else if line.contains(&str_to_json_field("link")) {
+            let line_vec: Vec<&str> = line.split(&str_to_json_field("link")).collect::<Vec<&str>>();
+
+            if line_vec.len() == 2 {
+                let len: usize = results.len() - 1;
+                results[len].link = line_vec[1].to_string();
+            };
+        } else if line.contains(&str_to_json_field("snippet")) {
+            let line_vec: Vec<&str> = line.split(&str_to_json_field("snippet")).collect::<Vec<&str>>();
+
+            if line_vec.len() == 2 {
+                let len: usize = results.len() - 1;
+                results[len].snippet = line_vec[1].to_string();
+            };
+        } else if line.contains("]") {
+            break;
+        };
+    };
+
+    ////results.display_all();
+
+    return Ok(results)
+}
+
+fn str_to_json_field(input: &str) -> String {
+    return format!("\"{}\": ", input)
 }
 
 struct SearchError {}
