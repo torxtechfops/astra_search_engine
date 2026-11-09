@@ -207,7 +207,7 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
         },
     };
 
-    let mut body: Vec<u8> = b"[".to_vec();
+    let mut body: Vec<u8> = b"[\n".to_vec();
     let mut index: usize = 1;
     let len: usize = results.len();
     for result in results {
@@ -219,7 +219,7 @@ pub async fn search(mut query: &str, api_key: &str) -> Vec<u8> {
         index += 1;
     };
 
-    body.append(&mut b"]".to_vec());
+    body.append(&mut b"\n]".to_vec());
 
     let mut response: Vec<u8> = ("HTTP/1.1 200 Ok \r\n").as_bytes().to_vec();
     response.add_header("Server", "Astra");
