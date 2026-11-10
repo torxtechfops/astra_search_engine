@@ -99,9 +99,11 @@ async fn handle_stream(mut stream: TcpStream, _socket: SocketAddr, api_key: &str
     } else if stream_string_vec[0].contains("POST") {
         ////println!("POST request");
 
-        todo!();
+        response = ResourceError::not_implemented();
     } else {
         error::<UnknownRequestTypeError>(&("Could not match request type in header ".to_owned() + stream_string_vec[0]), &UnknownRequestTypeError);
+
+        response = ResourceError::not_implemented();
     };
 
     match stream.write(&response) {
@@ -225,6 +227,8 @@ trait ErrorResponse {
     fn not_found_generic() -> Vec<u8>;
 
     fn internal_error_hmtl() -> Vec<u8>;
+
+    fn not_implemented() -> Vec<u8>;
 }
 
 impl ErrorResponse for ResourceError {
@@ -256,6 +260,22 @@ impl ErrorResponse for ResourceError {
     <h1>500 - Internal Server Error</h1>
 
     <p>Error 500 - The server was unable to respond to the request</p>
+</body>
+</html>").as_bytes().to_vec()
+    }
+
+    fn not_implemented() -> Vec<u8> {
+        return ("<!DOCTYPE html>
+<html lang=\"en\">
+<head>
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
+    <title>501 - Not implemented</title>
+</head>
+<body>
+    <h1>501 - Not implemented</h1>
+
+    <p>Error 501 - The server does not support this request</p>
 </body>
 </html>").as_bytes().to_vec()
     }
