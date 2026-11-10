@@ -28,7 +28,7 @@ pub trait Json {
 
 impl Json for SearchResult {
     fn into_json(&self) -> String {
-        format!("{{\n\"title\": {}\n\"Link\": {}\n\"Snippet\": {}\n}}", self.title, self.link, self.snippet)
+        format!("{{\n\"title\": {}\n\"link\": {}\n\"snippet\": {}\n}}", self.title, self.link, self.snippet)
     }
 }
 

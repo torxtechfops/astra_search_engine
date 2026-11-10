@@ -15,6 +15,10 @@ a:link {
     color: cornflowerblue;
 }
 
+a:visited {
+    color: greenyellow;
+}
+
 .search_box {
     border-radius: 25;
     background-color: #252428;
@@ -92,7 +96,7 @@ a:link {
     max-width: fit-content;
 
     font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: xx-large;
+    font-size: large;
 }
 
 .description {
@@ -108,4 +112,8 @@ a:link {
     
     border-radius: 5px;
     background-color: #252428;
+}
+
+.hidden {
+    display: none;
 }

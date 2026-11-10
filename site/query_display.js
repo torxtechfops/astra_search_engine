@@ -6,6 +6,7 @@ let warning = document.getElementById("cache_warning");
 let cache_info = document.getElementById("cache_info");
 let engine_info = document.getElementById("engine_info");
 let load_info = document.getElementById("load_info");
+let results_container = document.getElementById("results");
 
 let decoder = new TextDecoder('utf-8');
 
@@ -80,12 +81,39 @@ async function get_search_results() {
     engine_info.textContent = "Extra results: " + data_json.length;
 
     for (let i = 0; i < data_json.length; i++) {
-        console.log(data_json[i]);
+        ////console.log(data_json[i]);
+        add_search_result(data_json[i]);
     };
+
+    warning.classList.add("hidden");
 };
 
 function add_search_result(search_json) {
+    result = document.createElement("div");
+    result.classList.add("search");
 
+    link = document.createElement("a");
+    link.classList.add("title");
+    link.href = search_json.link;
+    link.textContent = search_json.title;
+
+    result.appendChild(link);
+
+    result.appendChild(document.createElement("br"));
+
+    small_link = document.createElement("a");
+    small_link.href = search_json.link;
+    small_link.textContent = search_json.link;
+
+    result.appendChild(small_link);
+
+    description = document.createElement("p");
+    description.classList.add("description");
+    description.textContent = search_json.snippet;
+    
+    result.appendChild(description);
+
+    results_container.appendChild(result);
 };
 
 function display_error(status) {
