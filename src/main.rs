@@ -13,14 +13,31 @@ use tokio::runtime::{
 mod config;
 mod error;
 mod tcp;
-mod tcp_errors;
+mod search;
 
 use config::{
     Config,
     FromFile,
+    API,
 };
 
-use crate::{config::{BindSocket, FileExistsError, FileNotFoundError, NewFile}, error::{NoneError, error, fatal_error}, tcp::handle_listener};
+use crate::{
+    config::{
+        BindSocket, 
+        FileExistsError, 
+        FileNotFoundError, 
+        NewFile
+    }, 
+    error::{
+        NoneError, 
+        error, 
+        fatal_error
+    }, 
+    tcp::tcp::{
+        default_socket,
+        handle_listener,
+    },
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>>{
     let config_path = "astra.conf";
@@ -46,7 +63,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
         }
     };
 
-    // TODO Multiple listeners
     let (addresses, ports): (usize, usize) = config.get_socket_numbers();
     println!("Add: {} | Port: {}", addresses, ports);
 
@@ -77,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
                 .worker_threads(2)
                 .thread_name(
                     listener.local_addr()
-                            .unwrap_or(tcp::default_socket())
+                            .unwrap_or(default_socket())
                             .to_string()
                         )
                 .build() {
@@ -91,7 +107,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>{
 
             let index_string: String = index.to_string();
             let max_string: String = index_max.to_string();
-            runtime.spawn(async move {handle_listener( &(index_string + "/" + &max_string), listener).await});
+            let api_key: String = config.get_api_key();
+            runtime.spawn(async move {handle_listener(&(index_string + "/" + &max_string), listener, &api_key).await});
 
             runtime
         });

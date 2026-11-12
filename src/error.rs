@@ -22,6 +22,10 @@ pub fn error<ErrorParam: Error>(text: &str, rust_error: &dyn Error) {
     };
 }
 
+pub fn api_error(text: &str, status: &str) {
+    eprintln!("API error occured: {} ({})", text, status);
+}
+
 #[derive(Debug, Clone)]
 pub struct NoneError;
 

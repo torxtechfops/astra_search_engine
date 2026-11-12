@@ -43,13 +43,9 @@ h1 {
     background-color: #252428;
     width: fit-content;
     
-    padding: 5px;
+    padding: 15px;
+    padding-left: 25px;
     border-radius: 25px;
-}
-
-.search_form {
-    padding-left: 10px;
-    padding-right: 10px;
 }
 
 .search_text {
@@ -62,6 +58,8 @@ h1 {
     outline: none;
 
     color: white;
+
+    width: 45vw;
 }
 
 .search_button {
