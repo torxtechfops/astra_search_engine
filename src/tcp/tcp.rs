@@ -95,11 +95,11 @@ async fn handle_stream(mut stream: TcpStream, _socket: SocketAddr, api_key: &str
     if stream_string_vec[0].contains("GET") {
         ////println!("GET request");
 
-        response = get_request(&stream_string_vec, api_key).await;
-    } else if stream_string_vec[0].contains("POST") {
-        ////println!("POST request");
-
-        response = ResourceError::not_implemented();
+        response = get_request(&stream_string_vec, api_key, true).await;
+    } else if stream_string_vec[0].contains("HEAD") {
+        // Required to handle
+        // Note: Returns 501 if an API search is requested, as wasting a search to estimate Content-Length is not worth HTTP compliance
+        response = get_request(&stream_string_vec, api_key, false).await;
     } else {
         error::<UnknownRequestTypeError>(&("Could not match request type in header ".to_owned() + stream_string_vec[0]), &UnknownRequestTypeError);
 
@@ -131,7 +131,7 @@ fn display_vec(vector: &Vec<u8>) {
     println!();
 }
 
-async fn get_request(request: &Vec<&str>, api_key: &str) -> Vec<u8> {
+async fn get_request(request: &Vec<&str>, api_key: &str, send_body: bool) -> Vec<u8> {
     let header_first: Vec<&str> = request[0].split(" ").collect();
     let mut requested_resource: &str = header_first[1];
 
@@ -157,15 +157,21 @@ async fn get_request(request: &Vec<&str>, api_key: &str) -> Vec<u8> {
     };
 
     let response: Vec<u8> = match request_type {
-        Resource => resource_get(requested_resource),
-        Search => search(requested_resource, api_key).await,
+        Resource => resource_get(requested_resource, send_body),
+        Search => {
+            if send_body {
+                search(requested_resource, api_key).await
+            } else {
+                ResourceError::not_implemented() // Cannot guess what the API will respond
+            }
+        },
         Cache => todo!(),
     };
 
     response
 }
 
-fn resource_get(requested_resource: &str) -> Vec<u8> {
+fn resource_get(requested_resource: &str, send_body: bool) -> Vec<u8> {
     let requested_split: Vec<&str> = requested_resource.split(".").collect();
     let content_type: &str = get_mime_type(requested_split[requested_split.len() - 1]);
 
@@ -197,7 +203,10 @@ fn resource_get(requested_resource: &str) -> Vec<u8> {
     response.add_header("Cache-Control", "max-age=600");
 
     response.add_header("Content-Length", &resource.len().to_string());
-    response.add_body(resource);
+
+    if send_body { // Allows for HEAD request
+        response.add_body(resource);
+    };
 
     response
 }
